@@ -5,7 +5,7 @@ class PostTableViewCell: UITableViewCell {
     
     var postInScreen: Post? {
         didSet {
-            postImageView.image = postInScreen?.image
+            postImageView.image = UIImage(named: postInScreen?.image ?? "blue_pixel")
             titleLabel.text = postInScreen?.name
             descriptionLabel.text = postInScreen?.description
             likesLabel.text = postInScreen?.likes

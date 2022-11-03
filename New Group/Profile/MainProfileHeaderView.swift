@@ -11,10 +11,11 @@ import UIKit
 class MainProfileHeaderView: UIView {
     
     // MARK:- Properties
+    weak var flowCoordinator: ProfileCoordinator?
     
     private var avatarImageView: UIImageView = {
         let avatarImageView = UIImageView()
-        avatarImageView.image = UIImage(named: "foto2")
+        avatarImageView.image = UIImage(named: "person")
         avatarImageView.contentMode = .scaleAspectFill
         avatarImageView.clipsToBounds = true
         avatarImageView.layer.cornerRadius = 50
@@ -26,7 +27,7 @@ class MainProfileHeaderView: UIView {
     
     private var fullNameLabel: UILabel = {
         let fullNameLabel = UILabel()
-        fullNameLabel.text = "Павел Миркитанов"
+//        fullNameLabel.text = "Павел Миркитанов"
         fullNameLabel.font = UIFont.systemFont(ofSize: 18, weight: .bold)
         fullNameLabel.textColor = .black
         fullNameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -34,12 +35,12 @@ class MainProfileHeaderView: UIView {
         return fullNameLabel
     }()
     
-    private var statusTextField: UITextField = {
+    var statusTextField: UITextField = {
         let statusTextField = UITextField()
         statusTextField.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         statusTextField.textColor = .black
         statusTextField.backgroundColor = .white
-        statusTextField.placeholder = "Enter new status"
+        statusTextField.placeholder = "Введите новый статус"
         statusTextField.borderStyle = .bezel
         statusTextField.translatesAutoresizingMaskIntoConstraints = false
         return statusTextField
@@ -49,7 +50,8 @@ class MainProfileHeaderView: UIView {
         let setStatusButton = UIButton()
         setStatusButton.backgroundColor = .systemBlue
         setStatusButton.setTitleColor(.white, for: .normal)
-        setStatusButton.setTitle("Set status", for: .normal)
+        setStatusButton.setTitle("Установить статус", for: .normal)
+        setStatusButton.setTitleColor(.black, for: .highlighted)
         setStatusButton.clipsToBounds = true
         setStatusButton.layer.masksToBounds = false
         setStatusButton.layer.cornerRadius = 4
@@ -90,14 +92,34 @@ class MainProfileHeaderView: UIView {
     
     @objc private func setStatusButtonTapped(_ sender: Any) {
         
+        guard statusTextField.text != "" else {
+            return
+        }
+        
+        
         statusLabel.text = statusTextField.text
         print (statusTextField.text ?? "Нет статуса")
         statusTextField.text = ""
+        
+        flowCoordinator?.profileCoordinatorUserProperties?.userStatus = statusLabel.text ?? "Статус пуст"
+        
+        //        flowCoordinator!.profileCoordinatorUserProperties!.userStatus = statusTextField.text ?? "Статус пуст"
+        
+        flowCoordinator!.profileCoordinatorAuthorizationDelegate!.saveUserProperties(id: flowCoordinator!.profileCoordinatorUserProperties!.id, userDataForSave: flowCoordinator!.profileCoordinatorUserProperties!)
+        
+        statusLabel.text = flowCoordinator!.profileCoordinatorUserProperties!.userStatus
+        print("Realm User Status")
+        print(flowCoordinator!.profileCoordinatorUserProperties!.userStatus)
+        
+        
+        
     }
     
     // MARK:- Setups
     
     private func setupViews() {
+        setNeedsLayout()
+        layoutIfNeeded()
         
         backgroundColor = .systemGray4
         
@@ -132,6 +154,33 @@ class MainProfileHeaderView: UIView {
         ]
         
         NSLayoutConstraint.activate(constraints)
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        guard flowCoordinator != nil else {
+            print("flowCoordinator for Header is nil")
+            return
+        }
+        
+        guard flowCoordinator?.profileCoordinatorAuthorizationDelegate != nil else {
+            print("Authorization delegate for Header is nil")
+            return
+        }
+        
+        guard flowCoordinator?.profileCoordinatorUserProperties != nil else {
+            print("flowCoordinator?.profileCoordinatorUserProperties for Header is nil")
+            return
+        }
+        
+        print("flowCoordinator?.profileCoordinatorAuthorizationDelegate")
+        print (flowCoordinator!.profileCoordinatorAuthorizationDelegate!)
+        
+        statusLabel.text = flowCoordinator!.profileCoordinatorUserProperties!.userStatus
+        
+        fullNameLabel.text = flowCoordinator!.profileCoordinatorUserProperties!.userName
+        
     }
 }
 

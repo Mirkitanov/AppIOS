@@ -1,4 +1,4 @@
-//
+//  Доработка 3
 //  MainLogInViewController.swift
 //  Navigation
 //
@@ -14,6 +14,12 @@ class MainLogInViewController: UIViewController {
     var authorizationDelegate: LoginViewControllerDelegate?
     
     var currentUserIndex: Int?
+    
+    var fixingUserProperties: UserModel?
+    
+    var tempStorage = StorageModel(tableModel: [])
+    
+    var tempUserContentArray : [(image: String, name: String, likes: String, views: String, description: String?)] = []
     
     var logInScrollView: UIScrollView = {
         let logInScrollView = UIScrollView()
@@ -98,32 +104,18 @@ class MainLogInViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        warning.text = ""
+        //:- Загрузка данных контента
+        tempStorage.tableModel = Storage.tableModel
         
-        guard let allUsers = authorizationDelegate?.checkUsers() else {
-            return
-        }
-        
-        print("All users: \(String(describing: allUsers.self))")
-        
-        if  !allUsers.isEmpty {
+        for (indexOfpostSection, postSection) in Storage.tableModel.enumerated() {
             
-            for (index, user) in allUsers.enumerated() {
+            if Storage.tableModel[indexOfpostSection].posts != nil {
                 
-                if user.isCurrentUser == true {
-                    currentUserIndex = index
-                    print("Current User: \(String(describing: allUsers[index]))")
-                    warning.text = "Выполняется вход"
+                for (_, onePost) in postSection.posts!.enumerated(){
                     
-                    pushToMainProfileViewController()
-                    
-                    break
+                    tempUserContentArray.append((image: onePost.image, name: onePost.name, likes: onePost.likes, views: onePost.views, description: onePost.description))
                 }
             }
-            
-        } else {
-            
-            warning.text = "Введите Логин и Пароль"
         }
         
         setupViews()
@@ -212,10 +204,27 @@ class MainLogInViewController: UIViewController {
         
         func createNewUser(){
             
-            if userDelegate.creteUser(id: UUID().uuidString, login: emailOrPhoneTextField.text, password: passwordTextField.text, failure: self.showAlert) {
+            let newUserID = UUID().uuidString
+            
+            if userDelegate.creteUser(id: newUserID, login: emailOrPhoneTextField.text, password: passwordTextField.text, failure: self.showAlert) {
+                self.warning.textColor = .systemGreen
                 self.warning.text = "Выполняется вход"
                 print("Вход выполнен успешно")
                 print ("Новый пользователь. Логин - \(String(describing: emailOrPhoneTextField.text!)). Пароль - \(String(describing: passwordTextField.text!))")
+                
+                //:- Фиксируем свойства Пользователя
+                fixingUserProperties = userDelegate.loadUserProperties(id: newUserID)
+                
+                //:- Заполняем поля контента Нового Пользователя значениями по умолчанию
+                fixingUserProperties?.currentUserStorage.tableModel = tempStorage.tableModel
+                fixingUserProperties?.userContentArray = tempUserContentArray
+                
+                userDelegate.saveUserProperties(id: newUserID, userDataForSave: fixingUserProperties!)
+                print("??? User Delegate Content = \(userDelegate.loadUserProperties(id: newUserID))")
+                //                flowCoordinator!.profileCoordinatorAuthorizationDelegate!.saveUserProperties(id: flowCoordinator!.profileCoordinatorUserProperties!.id, userDataForSave: flowCoordinator!.profileCoordinatorUserProperties!)
+                
+                
+                print("New User Properties = \(fixingUserProperties)")
                 
                 pushToMainProfileViewController()
                 
@@ -246,8 +255,8 @@ class MainLogInViewController: UIViewController {
         
         if users.isEmpty{
             warning.text = "Необходимо авторизоваться"
-            createNewUser()
             currentUserIndex = 0
+            showCreateAccounts(email: login, password: password)
             
         }  else {
             
@@ -272,6 +281,9 @@ class MainLogInViewController: UIViewController {
                     print("Вход выполнен успешно")
                     print ("Действующий пользователь. Логин - \(user.login). Пароль - \(user.password)")
                     
+                    //Фиксируем данные (переменные) текущего Пользователя
+                    fixingUserProperties = users[index]
+                    print("Действующие fixingUserProperties = \(fixingUserProperties)")
                     //Выполняем переход на экран MainProfileViewController()
                     pushToMainProfileViewController()
                     break
@@ -292,20 +304,21 @@ class MainLogInViewController: UIViewController {
                 }
             }
             
-             // Проходим циклом по всем Пользователям и сбрасываем флаг "Текущий Пользователь"
-             for (index, _) in users.enumerated() {
-             userDelegate.resetCurrentUser(id: users[index].id)
-             }
+            // Проходим циклом по всем Пользователям и сбрасываем флаг "Текущий Пользователь"
+            for (index, _) in users.enumerated() {
+                userDelegate.resetCurrentUser(id: users[index].id)
+            }
             
             if userNotFound {
+                warning.text = "Введите Логин и Пароль"
                 print("User Not Found!")
                 // show account creation
                 // Если Пользователь с введенным Логином не найден, предлагаем создать Нового Пользователя
                 showCreateAccounts(email: login, password: password)
-                
-                //При успешном создании нового Пользователя активируем у него флаг "Текущий Пользователь" и запоминаем индекс
                 return
+                //При успешном создании нового Пользователя активируем у него флаг "Текущий Пользователь" и запоминаем индекс
             } else {
+                print("User Found!")
                 // запоминаем индекс
                 guard let currentIndex = currentUserIndex else  {
                     return
@@ -313,6 +326,8 @@ class MainLogInViewController: UIViewController {
                 
                 // Если Пользователь с введенным Логином успешно найден, фиксируем успешно вошедшего пользователя
                 print ("Fixing current user: \(users[currentIndex].login)")
+                print ("Current user Status: \(users[currentIndex].userStatus)")
+                print ("Current user Status: \(users[currentIndex].currentUserStorage)")
                 
                 //запоминаем id
                 let currentId = users[currentIndex].id
@@ -345,13 +360,66 @@ class MainLogInViewController: UIViewController {
     }
     
     func pushToMainProfileViewController(){
-    // Go to MainProfileViewController
-    flowCoordinator?.gotoProfile()
+        
+        flowCoordinator?.profileCoordinatorUserProperties = fixingUserProperties
+        
+        print("Передача переменных во flowCoordinator")
+        print("flowCoordinator?.profileCoordinatorUserProperties")
+        print(flowCoordinator?.profileCoordinatorUserProperties)
+        
+        guard let authorizationDelegate = authorizationDelegate else {
+            return
+        }
+        flowCoordinator?.profileCoordinatorAuthorizationDelegate = authorizationDelegate
+        
+        // Go to MainProfileViewController
+        flowCoordinator?.gotoProfile()
     }
     
     // MARK: - Keyboard observers
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        navigationController?.navigationBar.isHidden = true
+        
+        warning.text = "Введите Логин и Пароль"
+        
+        guard let allUsers = authorizationDelegate?.checkUsers() else {
+            return
+        }
+        
+        print("All users: \(String(describing: allUsers.self))")
+        
+        // Если список Пользователей не пустой
+        if  !allUsers.isEmpty {
+            // Проходим циклом по всем Пользователям
+            for (index, user) in allUsers.enumerated() {
+                
+                // Если находим у какого Пользователя положительное значние isCurrentUser
+                if user.isCurrentUser == true {
+                    // сохраняем индекс данного Текущего Пользователя
+                    currentUserIndex = index
+                    // сохраняем значения полей Текущего Пользователя
+                    
+                    print("Current User: \(String(describing: allUsers[index]))")
+                    print("Current User ID = \(String(describing: allUsers[index].id))")
+                    print("Current User Status = \(String(describing: allUsers[index].userStatus))")
+                    print("Current User Content = \(String(describing: allUsers[index].currentUserStorage))")
+                    warning.textColor = .systemGreen
+                    warning.text = "Выполняется вход"
+                    
+                    fixingUserProperties = allUsers[index]
+                    pushToMainProfileViewController()
+                    
+                    break
+                }
+            }
+            
+        } else {
+            
+            warning.text = "Введите Логин и Пароль"
+        }
+        
         
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -365,6 +433,7 @@ class MainLogInViewController: UIViewController {
         
         emailOrPhoneTextField.text = ""
         passwordTextField.text = ""
+        warning.textColor = .systemRed
         warning.text = "Введите Логин и Пароль"
     }
     

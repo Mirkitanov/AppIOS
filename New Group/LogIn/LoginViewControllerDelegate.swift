@@ -9,7 +9,9 @@
 import Foundation
 protocol LoginViewControllerDelegate: AnyObject {
     func creteUser(id: String, login: String?, password: String?, failure: @escaping (Errors) -> Void) -> Bool
-    func checkUsers() -> [User]
+    func checkUsers() -> [UserModel]
     func setCurrentUser (id: String)
     func resetCurrentUser (id: String)
+    func saveUserProperties (id: String, userDataForSave: UserModel)
+    func loadUserProperties(id: String) -> UserModel?
 }
